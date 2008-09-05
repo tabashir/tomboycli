@@ -1,6 +1,7 @@
 #summary One-sentence summary of this page.
 
 = Usage =
+{{{
 
 tommy.pl <mode> [<options>...] [Note Title]
 
@@ -21,6 +22,7 @@ options:
 --enddate=<date>    Only show notes before this date
 --count=<int>       Return at most this number of notes (default 10)
 
+}}}
 
 
 = Details =
