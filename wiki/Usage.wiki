@@ -1,4 +1,4 @@
-#summary One-sentence summary of this page.
+#summary Summary of command line options
 
 = Usage =
 {{{
