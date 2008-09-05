@@ -1,14 +1,5 @@
 import dbus, gobject, dbus.glib, sys, optparse, datetime, tempfile, os
 
-def init():
-    # Get the D-Bus session bus     
-    bus = dbus.SessionBus()                 
-    # Access the Tomboy D-Bus object      
-    obj = bus.get_object("org.gnome.Tomboy", "/org/gnome/Tomboy/RemoteControl")
-    # Access the Tomboy remote control interface               
-    tomboy = dbus.Interface(obj, "org.gnome.Tomboy.RemoteControl")
-    return tomboy
-
 def printUsage():
     print "Use better"
     
@@ -18,6 +9,12 @@ class Tommy:
     obj = bus.get_object("org.gnome.Tomboy", "/org/gnome/Tomboy/RemoteControl")
     tomboy = dbus.Interface(obj, "org.gnome.Tomboy.RemoteControl")
     noteName = ""
+    verbose = False
+    #xml = False
+    tags = []
+    text = ""
+    #startdate
+    #enddate
         
     def appendNote(self):    
         noteURI = self.findNoteString(self.noteName)
@@ -29,7 +26,7 @@ class Tommy:
         self.tomboy.SetNoteContentsXml(noteURI, oldNote)
     
     def editNote(self):
-        noteURI = self.findNoteString(noteName)
+        noteURI = self.findNoteString(self.noteName)
         oldNote = self.tomboy.GetNoteContentsXml(noteURI)
         
         (fd, tfn) = tempfile.mkstemp()
@@ -48,7 +45,11 @@ class Tommy:
             self.tomboy.SetNoteContentsXml(noteURI,contents)
         except:
             print "Your XML was malformed. Edit again (Y/N)?"
-    
+            answer = ""
+            while (answer.lower() != 'n' and answer.lower() != 'y'):
+                answer = getInput(1)
+            if (answer.lower() == 'y'):
+                self.editNote()
     
     def findNoteString(self,string):
         string = string.lower()
@@ -71,6 +72,38 @@ class Tommy:
     
     #for arg in sys.argv:
     def search(self):
+        if self.noteName:
+            words = self.noteName.lower().split(" ")
+            print words
+            noteURIs = self.tomboy.SearchNotes(self.noteName, False)
+            if noteURIs:
+                for noteURI in noteURIs:
+                    title = self.tomboy.GetNoteTitle(noteURI)
+                    note = self.tomboy.GetNoteContents(noteURI)
+                    notel = note.lower()
+                    leftpos = 1e10
+                    rightpos = 0
+                    for w in words:
+                        lp = notel.find(w, len(title))
+                        rp = notel.rfind(w)
+                        if (lp < leftpos): leftpos=lp
+                        if (rp > rightpos): rightpos=rp
+                    tmp1 = note.rfind(" ",0,leftpos-15)+1
+                    if (tmp1 > leftpos): tmp1 = leftpos
+                    tmp2 =  note.rfind("\n",0,leftpos)+1
+                    if (tmp1>tmp2): leftpos = tmp1
+                    else: leftpos = tmp2
+                    tmp1 = note.find(" ", rightpos+20)
+                    if tmp1 < rightpos: tmp1=rightpos+20
+                    tmp2 = note.find("\n", rightpos)
+                    if tmp2 < rightpos: tmp2=tmp1
+                    if (tmp1<tmp2): rightpos = tmp1
+                    else: rightpos = tmp2
+                    if (leftpos < 0): leftpos = 0
+                    if (rightpos > len(note)): rightpos = len(note)
+                    print title + ": ..." + note[leftpos:rightpos] + "..."
+            else:
+                print "No notes with search term \"" + self.noteName + "\" found."
         return
     
     def displayNote(self):
@@ -179,8 +212,7 @@ def getInput():
     return string
 
 def main():
-    tomboy = init()
-    parser = optparse.OptionParser("usage %prog [options]")
+    parser = optparse.OptionParser("%prog <mode> [<option>,...] [\"Note Title\"]")
     parser.add_option("-a", "--append", dest="append", action="store_true")
     parser.add_option("-c", "--create", dest="create", action="store_true")
     parser.add_option("-d", "--display", dest="display",action="store_true")
@@ -192,7 +224,9 @@ def main():
 
 
     parser.add_option("-t", "--tag", dest="tag", action="store")
-    parser.add_option("-x", "--xml", action="store_true")
+    parser.add_option("-x", "--xml", dest="xml", action="store_true")
+    parser.add_option("--no-xml", dest="forcexml", action="store_false")
+    parser.add_option("--force-xml", dest="forcexml", action="store_true")
     parser.add_option("--startdate", dest="startdate", action="store")
     parser.add_option("--enddate", dest="enddate", action="store")
     parser.add_option("--count", dest="count", action="store", type="int")
@@ -219,20 +253,20 @@ def main():
         options.list = True
         listCount = -1
    
-
-    startDate = processDateString(options.startdate)
-    endDate = processDateString(options.enddate)       
-    
     t = Tommy()
     t.noteName = noteName
 
+    t.startDate = processDateString(options.startdate)
+    t.endDate = processDateString(options.enddate)       
+    
+  
     #if (options.append):
     #    appendNote(tomboy,options.append)
     if (options.append):
         t.appendNote()
         
     if (options.edit):
-       t.editNote(noteName)
+       t.editNote()
         
         
     if (options.list):
@@ -240,6 +274,9 @@ def main():
         
     if (options.display):
         t.displayNote()
+
+    if (options.search):
+        t.search()
     
 
 main()
