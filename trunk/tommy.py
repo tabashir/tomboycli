@@ -1,13 +1,22 @@
-import dbus, gobject, dbus.glib, sys, optparse, datetime, tempfile, os
+#!/usr/bin/python
+import dbus, gobject, dbus.glib, sys, optparse, datetime, tempfile, os, string
 
 def printUsage():
     print "Use better"
     
 class Tommy:
     listCount = 10
-    bus = dbus.SessionBus()
-    obj = bus.get_object("org.gnome.Tomboy", "/org/gnome/Tomboy/RemoteControl")
-    tomboy = dbus.Interface(obj, "org.gnome.Tomboy.RemoteControl")
+    try:
+        bus = dbus.SessionBus()
+    except:
+        print "Could not connect to dbus session"
+        exit
+    try:
+        obj = bus.get_object("org.gnome.Tomboy", "/org/gnome/Tomboy/RemoteControl")
+        tomboy = dbus.Interface(obj, "org.gnome.Tomboy.RemoteControl")
+    except:
+        print "Could not connect to Tomboy"
+        exit
     noteName = ""
     verbose = False
     #xml = False
@@ -51,12 +60,13 @@ class Tommy:
             if (answer.lower() == 'y'):
                 self.editNote()
     
-    def findNoteString(self,string):
-        string = string.lower()
+    def findNoteString(self,mystring):
+        mystring = mystring.lower()
         allNotes = self.tomboy.ListAllNotes()
         for noteURI in allNotes:
             title = self.tomboy.GetNoteTitle(noteURI)
-            if string in title.lower():
+            #if mystring in title.lower():
+            if title.lower().find(mystring,0) == 0:
                 return noteURI
     
     def findMostRecentNote(self):
@@ -116,7 +126,7 @@ class Tommy:
                 if noteURI:
                     print self.tomboy.GetNoteContents(noteURI)
                 else:
-                    print "No note found with " + self.noteName + " in title"            
+                    print "No note found begining with title  " + self.noteName            
         else:
             noteURI = self.findMostRecentNote()
             print self.tomboy.GetNoteContents(noteURI)
@@ -150,21 +160,7 @@ class Tommy:
             loopCount+=1
             if loopCount == listCount:
                 break
-            
-def stuff(tomboy):
-    # Display the Start Here note                                      
-    tomboy.DisplayNote(tomboy.FindStartHereNote()) 
-    # Display the title of every note 
-    
-    
-    # Display the contents of the note called Test
-    print tomboy.GetNoteContents(tomboy.FindNote("Test"))
-    # Add a tag to the note called Test
-    tomboy.AddTagToNote(tomboy.FindNote("Test"), "sampletag")
-    # Display the titles of all notes with the tag 'sampletag'
-    for note in tomboy.GetAllNotesWithTag("sampletag"):
-        print tomboy.GetNoteTitle(note)
-
+ 
 def argsToString(args):
     if (args):
         full_string = ""
@@ -203,24 +199,24 @@ def va_callback(option, opt_str, value, parser):
     setattr(parser.values, option.dest, value)
 
 def getInput():
-    string = ""
+    mystring = ""
     while(True):
         line = sys.stdin.readline()
         if not line:
             break
-        string += line
-    return string
+        mystring += line
+    return mystring
 
 def main():
     parser = optparse.OptionParser("%prog <mode> [<option>,...] [\"Note Title\"]")
-    parser.add_option("-a", "--append", dest="append", action="store_true")
-    parser.add_option("-c", "--create", dest="create", action="store_true")
-    parser.add_option("-d", "--display", dest="display",action="store_true")
-    parser.add_option("-e", "--edit", dest="edit", action="store_true")
+    parser.add_option("-a", "--append", dest="append", action="store_true", help="Append to an existing note")
+    parser.add_option("-c", "--create", dest="create", action="store_true", help="Create a new note")
+    parser.add_option("-d", "--display", dest="display",action="store_true",help="Print a note to terminal")
+    parser.add_option("-e", "--edit", dest="edit", action="store_true",     help="Interactively edit a note")
     #parser.add_option("-l", "--list", dest="list", action="callback", callback=va_callback)
-    parser.add_option("-l", "--list", dest="list", action="store_true")
-    parser.add_option("-L", "--listall", dest="listall", action="store_true")
-    parser.add_option("-s", "--search", dest="search", action="store_true")
+    parser.add_option("-l", "--list", dest="list", action="store_true",     help="List recent notes")
+    parser.add_option("-L", "--listall", dest="listall", action="store_true",help="List all notes")
+    parser.add_option("-s", "--search", dest="search", action="store_true", help="Search for text in notes")
 
 
     parser.add_option("-t", "--tag", dest="tag", action="store")
@@ -241,9 +237,10 @@ def main():
     if (options.listall): modeCount+=1
     if (options.search): modeCount+=1
     if (modeCount < 1):
-        printUsage()
+        options.list = True
     if (modeCount > 1):
-        print "Only one of {append, create, display, edit, list, search} can be specified"
+        print "Only one of {append, create, display, edit, list, search} can be specified. Use '--help' for details"
+        sys.exit(1)
         
     noteName = argsToString(args)       
     listCount = 10
@@ -259,9 +256,6 @@ def main():
     t.startDate = processDateString(options.startdate)
     t.endDate = processDateString(options.enddate)       
     
-  
-    #if (options.append):
-    #    appendNote(tomboy,options.append)
     if (options.append):
         t.appendNote()
         
@@ -280,7 +274,3 @@ def main():
     
 
 main()
-#list(tomboy)
-#print getNote(tomboy,"some", False)
-#tomboy.DisplayNote(tomboy.FindNote("some"))
-#stuff(tomboy)
