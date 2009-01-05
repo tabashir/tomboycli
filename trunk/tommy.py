@@ -1,5 +1,19 @@
 #!/usr/bin/python
-import dbus, gobject, dbus.glib, sys, optparse, datetime, tempfile, os, string
+import dbus, gobject, dbus.glib, sys, optparse, datetime, tempfile, os, string, urllib
+import getpass
+from login import HttpRpcServer
+
+def GetUserCredentials():
+    """Prompts the user for a username and password."""
+    email = None
+    if email is None:
+        email = raw_input("Email: ")
+        
+        password_prompt = "Password for %s: " % email
+        password = getpass.getpass(password_prompt)
+        return (email, password)
+        
+
 
 def printUsage():
     print "Use better"
@@ -160,7 +174,44 @@ class Tommy:
             loopCount+=1
             if loopCount == listCount:
                 break
+
+
+    def uploadNote(self):
+        if self.noteName:
+            note = self.getNote(self.noteName, False)
+            if note:
+                print note
+            else:
+                noteURI = self.findNoteString(self.noteName)
+                if noteURI:
+                    #print resp
+                    self.doUpload(noteURI,self.tomboy.GetNoteCompleteXml(noteURI))
+                else:
+                    print "No note found begining with title  " + self.noteName            
+        else:
+            print "Must specify title of note to upload"
+
+
+    def uploadAllNotes(self):
+        h = HttpRpcServer("tomboyweb.appspot.com",GetUserCredentials)
+        h._Authenticate()
+        for noteURI in self.tomboy.ListAllNotes(): 
+            self.doUpload(h,noteURI,self.tomboy.GetNoteCompleteXml(noteURI))
+
+
+    def doUpload(self,server, URI, noteContent):
+        #if need Google auth to remote server
+       
+        resp = server.Send("/sendnote",urllib.urlencode({"noteid" :self.tomboy.GetNoteTitle(URI) , "note" : noteContent}))
+        #else do this (simple)
+        #data = urllib.urlencode({"noteid" : URI, "note" : noteContent})
+        #f = urllib.urlopen("http://localhost:8080/sendnote",data)
+        print resp
  
+
+
+
+
 def argsToString(args):
     if (args):
         full_string = ""
@@ -212,6 +263,8 @@ def main():
     parser.add_option("-a", "--append", dest="append", action="store_true", help="Append to an existing note")
     parser.add_option("-c", "--create", dest="create", action="store_true", help="Create a new note")
     parser.add_option("-d", "--display", dest="display",action="store_true",help="Print a note to terminal")
+    parser.add_option("-u", "--upload", dest="upload",action="store_true",  help="Upload a note")
+    parser.add_option("-U", "--uploadAll", dest="uploadAll",action="store_true",  help="Upload ALL notes")
     parser.add_option("-e", "--edit", dest="edit", action="store_true",     help="Interactively edit a note")
     #parser.add_option("-l", "--list", dest="list", action="callback", callback=va_callback)
     parser.add_option("-l", "--list", dest="list", action="store_true",     help="List recent notes")
@@ -232,6 +285,8 @@ def main():
     if (options.append): modeCount+=1
     if (options.create): modeCount+=1
     if (options.display): modeCount+=1
+    if (options.upload): modeCount+=1
+    if (options.uploadAll): modeCount+=1
     if (options.edit): modeCount+=1
     if (options.list): modeCount+=1
     if (options.listall): modeCount+=1
@@ -268,6 +323,12 @@ def main():
         
     if (options.display):
         t.displayNote()
+
+    if (options.upload):
+        t.uploadNote()
+
+    if (options.uploadAll):
+        t.uploadAllNotes()
 
     if (options.search):
         t.search()
